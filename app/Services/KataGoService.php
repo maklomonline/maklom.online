@@ -44,9 +44,19 @@ class KataGoService
      */
     public function isEnabled(): bool
     {
-        $binary = config('katago.binary');
+        $binary = (string) config('katago.binary');
+        $model  = (string) config('katago.model');
 
-        return $binary !== '' && file_exists((string) $binary);
+        if ($binary === '' || ! file_exists($binary)) {
+            return false;
+        }
+
+        // If a model path is configured, it must exist — otherwise KataGo crashes on launch
+        if ($model !== '' && ! file_exists($model)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

@@ -37,6 +37,11 @@ export function gameReview(gameId, allBoardStates, moves, boardSize, komi, annot
         editComments: {},           // { moveIndex: string }
         editMoveAnnotations: {},    // { moveIndex: type_string }
 
+        // ── Auto-play ─────────────────────────────────────
+        autoPlaying: false,
+        autoPlaySpeed: 1000,   // ms per move
+        _autoPlayTimer: null,
+
         // ── UI toggles ────────────────────────────────────
         showAnnotationList: false,
         showSgfRaw: false,
@@ -70,9 +75,9 @@ export function gameReview(gameId, allBoardStates, moves, boardSize, komi, annot
             const target = Math.max(0, Math.min(n, this.totalMoves));
             this.moveIndex = target;
 
-            // Replace board array contents so Alpine detects the change
+            // Assign new array so Alpine always detects the change
             const snapshot = _states[target] ?? _states[this.totalMoves] ?? [];
-            this.board.splice(0, this.board.length, ...snapshot);
+            this.board = [...snapshot];
 
             if (target > 0) {
                 const mv = this.moves[target - 1];
@@ -85,6 +90,9 @@ export function gameReview(gameId, allBoardStates, moves, boardSize, komi, annot
             } else {
                 this.lastMoveIdx = null;
             }
+
+            // Explicit redraw as fallback in case x-effect hasn't triggered yet
+            this.$nextTick(() => this.renderStones());
         },
 
         goFirst() { this.goToMove(0); },

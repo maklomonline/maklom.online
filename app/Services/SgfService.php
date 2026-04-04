@@ -78,8 +78,8 @@ class SgfService
 
             try {
                 $result = $this->boardService->placeStone($board, $bs, $row, $col, $color, $koPoint);
-                $board = $result->board;
-                $koPoint = $result->koPoint;
+                $board = $result->newBoard;
+                $koPoint = $result->newKoPoint;
             } catch (\Throwable) {
                 // Invalid move in history — keep board as-is to avoid crashing
             }
