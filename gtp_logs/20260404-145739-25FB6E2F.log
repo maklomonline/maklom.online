@@ -1,0 +1,117 @@
+2026-04-04 14:57:39+0000: Running with following config:
+allowResignation = true
+lagBuffer = 1.0
+logAllGTPCommunication = true
+logDir = gtp_logs
+logSearchInfo = true
+logSearchInfoForChosenMove = false
+logToStderr = false
+maxTimePondering = 60.0
+maxVisits = 500
+numSearchThreads = 6
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+rules = tromp-taylor
+searchFactorAfterOnePass = 0.50
+searchFactorAfterTwoPass = 0.25
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.95
+
+2026-04-04 14:57:39+0000: GTP Engine starting...
+2026-04-04 14:57:39+0000: KataGo v1.16.4
+2026-04-04 14:57:39+0000: Using TrompTaylor rules initially, unless GTP/GUI overrides this
+2026-04-04 14:57:39+0000: Using 6 CPU thread(s) for search
+2026-04-04 14:57:39+0000: nnRandSeed0 = 1205062058574344155
+2026-04-04 14:57:39+0000: After dedups: nnModelFile0 = /usr/local/kata1-b28c512nbt-s12763923712-d5805955894.bin.gz useFP16 auto useNHWC auto
+2026-04-04 14:57:39+0000: Initializing neural net buffer to be size 19 * 19 exactly
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 1: Model version 15
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 1: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 0: Model version 15
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 0: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 3: Model version 15
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 3: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 2: Model version 15
+2026-04-04 14:57:46+0000: Eigen (CPU) backend thread 2: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:50+0000: Loaded neural net with nnXLen 19 nnYLen 19
+2026-04-04 14:57:50+0000: Initializing board with boardXSize 19 boardYSize 19
+2026-04-04 14:57:50+0000: Loaded config /var/www/maklom.online/katago/default_gtp.cfg
+2026-04-04 14:57:50+0000: Loaded model /usr/local/kata1-b28c512nbt-s12763923712-d5805955894.bin.gz
+2026-04-04 14:57:50+0000: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:50+0000: GTP ready, beginning main protocol loop
+2026-04-04 14:57:50+0000: Controller: protocol_version
+2026-04-04 14:57:50+0000: = 2
+2026-04-04 14:57:50+0000: Controller: clear_board
+2026-04-04 14:57:50+0000: = 
+2026-04-04 14:57:50+0000: Controller: boardsize 9
+2026-04-04 14:57:50+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:57:50+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:57:50+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:57:50+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:57:50+0000: Cleaned up old neural net and bot
+2026-04-04 14:57:50+0000: nnRandSeed0 = 14436208774167458438
+2026-04-04 14:57:50+0000: After dedups: nnModelFile0 = /usr/local/kata1-b28c512nbt-s12763923712-d5805955894.bin.gz useFP16 auto useNHWC auto
+2026-04-04 14:57:50+0000: Initializing neural net buffer to be size 9 * 9 exactly
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 0: Model version 15
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 0: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 1: Model version 15
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 1: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 3: Model version 15
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 3: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 2: Model version 15
+2026-04-04 14:57:57+0000: Eigen (CPU) backend thread 2: Model name: kata1-b28c512nbt-s12763923712-d5805955894
+2026-04-04 14:58:01+0000: Loaded neural net with nnXLen 9 nnYLen 9
+2026-04-04 14:58:01+0000: Initializing board with boardXSize 9 boardYSize 9
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: komi 6.5
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: kata-set-param maxVisits 1
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: kata-set-param rootNoiseEnabled true
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: kata-set-param rootPolicyTemperature 2.5
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: kata-set-param rootDirichletNoiseTotalConcentration 3
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: kata-set-param rootDirichletNoiseWeight 0.5
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: play black D4
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: time_settings 600 30 3
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: time_left white 600 3
+2026-04-04 14:58:01+0000: = 
+2026-04-04 14:58:01+0000: Controller: genmove white
+2026-04-04 14:58:02+0000: MoveNum: 1 HASH: 5A923CA831EC9443E2ACC23691D8092E
+   A B C D E F G H J
+ 9 . . . . . . . . .
+ 8 . . . . . . . . .
+ 7 . . . . . . @ . .
+ 6 . . . . . . . . .
+ 5 . . . . . . . . .
+ 4 . . . X1. . . . .
+ 3 . . . . . . . . .
+ 2 . . . . . . . . .
+ 1 . . . . . . . . .
+
+koPOSITIONALscoreAREAtaxNONEsui1komi6.5
+Time taken: 0.986438
+Root visits: 1
+New playouts: 1
+NN rows: 1
+NN batches: 1
+NN avg batch size: 1
+PV: G7
+Tree:
+: T -89.71c W -88.55c S  -1.15c ( -1.6 L  -0.5) N       1  --  G7
+---White(^)---
+
+2026-04-04 14:58:02+0000: = G7
+2026-04-04 14:58:03+0000: Controller: quit
+2026-04-04 14:58:03+0000: Quit requested by controller
+2026-04-04 14:58:03+0000: = 
+2026-04-04 14:58:03+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:58:03+0000: GPU -1 finishing, processed 1 rows 1 batches
+2026-04-04 14:58:03+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:58:03+0000: GPU -1 finishing, processed 0 rows 0 batches
+2026-04-04 14:58:03+0000: All cleaned up, quitting

@@ -22,11 +22,11 @@ class BotMoveJob implements ShouldQueue
     public int $tries = 2;
 
     /**
-     * timeout สูงสุด 120 วินาที
-     * บอทระดับ 3d ใช้ maxVisits=800 และ KataGo อาจต้องโหลด neural network
-     * ครั้งแรกหลายสิบวินาที
+     * timeout สูงสุด 600 วินาที
+     * บอทระดับ 3d ใช้ maxVisits=200 บน CPU อาจใช้เวลา ~140 วินาที
+     * บวก KataGo startup ~15 วินาที + buffer → 600 วินาที
      */
-    public int $timeout = 120;
+    public int $timeout = 600;
 
     public function __construct(
         public readonly int $gameId,
@@ -62,6 +62,10 @@ class BotMoveJob implements ShouldQueue
 
         // รอ 1 วินาทีเพื่อให้รู้สึกเป็นธรรมชาติ
         sleep(1);
+
+        // รีเซ็ต last_move_at เป็น now() เพื่อให้ clock ของบอทนับจากจุดที่บอทเริ่มคิด
+        // ไม่ใช่นับจากเวลาที่มนุษย์เดิน (ซึ่งรวม queue wait time ไว้ด้วย)
+        $game->last_move_at = now();
 
         // เลือก engine: ใช้ KataGo ถ้าตั้งค่าไว้ มิฉะนั้น fallback เป็น PHP engine เดิม
         $coordinate = $this->getMove($kataGoService, $botService, $game);

@@ -17,7 +17,7 @@ return new class extends Migration
         // Sync rank ของ users ที่มีอยู่ให้สอดคล้องกับ rank_points
         // (ใช้ CASE WHEN แทนการเรียก RatingService เพื่อให้ migration รันได้อิสระ)
         DB::statement("
-            UPDATE users SET rank = CASE
+            UPDATE users SET `rank` = CASE
                 WHEN rank_points BETWEEN 0    AND 50   THEN '30k'
                 WHEN rank_points BETWEEN 51   AND 100  THEN '29k'
                 WHEN rank_points BETWEEN 101  AND 150  THEN '28k'
