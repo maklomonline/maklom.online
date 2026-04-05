@@ -9,7 +9,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class ScoringPhaseStarted implements ShouldBroadcast
+class ScoreConfirmationUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -23,14 +23,8 @@ class ScoringPhaseStarted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'boardState' => $this->game->board_state,
-            'komi' => $this->game->komi,
-            'capturesBlack' => $this->game->captures_black,
-            'capturesWhite' => $this->game->captures_white,
-            'boardSize' => $this->game->board_size,
-            'deadStones' => $this->game->dead_stones ?? [],
-            'scoreConfirmedBlack' => (bool) ($this->game->score_confirmed_black ?? false),
-            'scoreConfirmedWhite' => (bool) ($this->game->score_confirmed_white ?? false),
+            'scoreConfirmedBlack' => $this->game->score_confirmed_black ?? false,
+            'scoreConfirmedWhite' => $this->game->score_confirmed_white ?? false,
         ];
     }
 }

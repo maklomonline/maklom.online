@@ -19,13 +19,17 @@ class Game extends Model
         'current_color', 'move_number', 'board_state',
         'captures_black', 'captures_white', 'ko_point', 'consecutive_passes',
         'status', 'result', 'winner_id', 'end_reason', 'started_at', 'last_move_at', 'finished_at',
+        'dead_stones', 'score_confirmed_black', 'score_confirmed_white',
     ];
 
     protected function casts(): array
     {
         return [
             'board_state' => 'array',
+            'dead_stones' => 'array',
             'komi' => 'float',
+            'score_confirmed_black' => 'boolean',
+            'score_confirmed_white' => 'boolean',
             'started_at' => 'datetime',
             'last_move_at' => 'datetime',
             'finished_at' => 'datetime',

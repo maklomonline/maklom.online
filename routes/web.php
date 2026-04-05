@@ -84,7 +84,7 @@ Route::middleware(['auth', 'not.banned'])->group(function () {
             Route::post('/games/{game}/move', [GameController::class, 'move'])->name('games.move');
             Route::post('/games/{game}/pass', [GameController::class, 'pass'])->name('games.pass');
             Route::post('/games/{game}/resign', [GameController::class, 'resign'])->name('games.resign');
-            Route::post('/games/{game}/scoring/dead-stones', [GameController::class, 'submitDeadStones'])->name('games.scoring');
+            Route::post('/games/{game}/scoring/toggle-dead-group', [GameController::class, 'toggleDeadGroup'])->name('games.toggle-dead-group');
             Route::post('/games/{game}/confirm-score', [GameController::class, 'confirmScore'])->name('games.confirm-score');
             Route::post('/games/{game}/cancel-scoring', [GameController::class, 'cancelScoring'])->name('games.cancel-scoring');
         });

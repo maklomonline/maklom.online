@@ -1,6 +1,6 @@
-import { finalTerritoryScore } from '../goscorer.js';
+import { finalTerritoryScore, territoryScoring } from '../goscorer.js';
 
-export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, initialKo, initCapturesBlack, initCapturesWhite, initialStatus, initialMoveNumber, komi, initialResult, confirmMove = false) {
+export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, initialKo, initCapturesBlack, initCapturesWhite, initialStatus, initialMoveNumber, komi, initialResult, confirmMove = false, initDeadStones = [], initConfirmedBlack = false, initConfirmedWhite = false) {
     const alreadyOver = initialStatus === 'finished' || initialStatus === 'aborted';
     const initialScoring = initialStatus === 'scoring';
     return {
@@ -27,6 +27,12 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
         pendingCoord: null,
         pendingIdx: null,
 
+        // Scoring phase state
+        deadStones: (initDeadStones ?? []).map(([r, c]) => r * boardSize + c),
+        scoreConfirmedBlack: initConfirmedBlack ?? false,
+        scoreConfirmedWhite: initConfirmedWhite ?? false,
+        territoryMap: Array(boardSize * boardSize).fill(0), // 0=neutral, 1=black, 2=white
+
         init() {
             this.isMyTurn = !initialScoring && !!this.myColor && this.myColor !== '' && this.currentColor === this.myColor;
             if (initialScoring) {
@@ -47,19 +53,43 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
             return stones;
         },
 
+        _buildMarkedDead() {
+            const markedDead = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(false));
+            this.deadStones.forEach(idx => {
+                const row = Math.floor(idx / this.boardSize);
+                const col = idx % this.boardSize;
+                markedDead[row][col] = true;
+            });
+            return markedDead;
+        },
+
         _computeScore(capturesBlack, capturesWhite, komiVal) {
             const stones = this._boardTo2D();
-            const markedDead = Array.from({ length: this.boardSize }, () => Array(this.boardSize).fill(false));
+            const markedDead = this._buildMarkedDead();
+            const scoring = territoryScoring(stones, markedDead);
             const result = finalTerritoryScore(stones, markedDead, capturesBlack, capturesWhite, komiVal);
             this.scoreBlack = result.black;
             this.scoreWhite = result.white;
+            // Build flat territory map
+            this.territoryMap = Array(this.boardSize * this.boardSize).fill(0);
+            for (let y = 0; y < this.boardSize; y++) {
+                for (let x = 0; x < this.boardSize; x++) {
+                    const t = scoring[y][x].isTerritoryFor;
+                    if (t === 1) this.territoryMap[y * this.boardSize + x] = 1;
+                    else if (t === 2) this.territoryMap[y * this.boardSize + x] = 2;
+                }
+            }
         },
 
-        _enterScoringProposal(boardState, capturesBlack, capturesWhite, komiVal) {
+        _enterScoringProposal(boardState, capturesBlack, capturesWhite, komiVal, deadStones, confirmedBlack, confirmedWhite) {
             if (boardState) this.board.splice(0, this.board.length, ...boardState);
             this.scoringProposal = true;
             this.isMyTurn = false;
+            this.deadStones = (deadStones ?? []).map(([r, c]) => r * this.boardSize + c);
+            this.scoreConfirmedBlack = confirmedBlack ?? false;
+            this.scoreConfirmedWhite = confirmedWhite ?? false;
             this._computeScore(capturesBlack, capturesWhite, komiVal);
+            this.renderStones();
         },
 
         listenToChannel() {
@@ -88,15 +118,34 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                         e.boardState,
                         e.capturesBlack ?? this.capturesBlack,
                         e.capturesWhite ?? this.capturesWhite,
-                        e.komi ?? this.komi
+                        e.komi ?? this.komi,
+                        e.deadStones ?? [],
+                        e.scoreConfirmedBlack ?? false,
+                        e.scoreConfirmedWhite ?? false
                     );
+                })
+                .listen('DeadStonesUpdated', (e) => {
+                    this.deadStones = (e.deadStones ?? []).map(([r, c]) => r * this.boardSize + c);
+                    this.scoreConfirmedBlack = e.scoreConfirmedBlack ?? false;
+                    this.scoreConfirmedWhite = e.scoreConfirmedWhite ?? false;
+                    this._computeScore(this.capturesBlack, this.capturesWhite, this.komi);
+                    this.renderStones();
+                })
+                .listen('ScoreConfirmationUpdated', (e) => {
+                    this.scoreConfirmedBlack = e.scoreConfirmedBlack ?? false;
+                    this.scoreConfirmedWhite = e.scoreConfirmedWhite ?? false;
                 })
                 .listen('ScoringCancelled', (e) => {
                     this.scoringProposal = false;
                     this.scoreBlack = 0;
                     this.scoreWhite = 0;
+                    this.deadStones = [];
+                    this.scoreConfirmedBlack = false;
+                    this.scoreConfirmedWhite = false;
+                    this.territoryMap = Array(this.boardSize * this.boardSize).fill(0);
                     this.currentColor = e.nextColor;
                     this.isMyTurn = !!this.myColor && this.myColor === this.currentColor;
+                    this.renderStones();
                 })
                 .listen('GameEnded', (e) => {
                     this._handleGameOver(e.result);
@@ -123,7 +172,13 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
 
         // ── Click / Hover ─────────────────────────────
         handleBoardClick(event) {
-            if (!this.isMyTurn || this.gameOver) return;
+            if (this.gameOver) return;
+            // In scoring mode, clicks toggle dead groups
+            if (this.scoringProposal) {
+                this._handleScoringClick(event);
+                return;
+            }
+            if (!this.isMyTurn) return;
             const { col, row } = this.svgCoords(event);
             if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) return;
             const idx = row * this.boardSize + col;
@@ -144,6 +199,15 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
             }
         },
 
+        _handleScoringClick(event) {
+            if (!this.myColor) return; // spectators cannot toggle
+            const { col, row } = this.svgCoords(event);
+            if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) return;
+            const idx = row * this.boardSize + col;
+            if (this.board[idx] === 0) return; // empty intersection
+            this.toggleDeadGroup(this.rowColToCoord(row, col));
+        },
+
         confirmPendingMove() {
             if (!this.pendingCoord) return;
             const coord = this.pendingCoord;
@@ -159,7 +223,7 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
         },
 
         handleBoardHover(event) {
-            if (!this.isMyTurn || this.gameOver) { this.hoverIdx = null; return; }
+            if (this.scoringProposal || !this.isMyTurn || this.gameOver) { this.hoverIdx = null; return; }
             const { col, row } = this.svgCoords(event);
             if (row < 0 || row >= this.boardSize || col < 0 || col >= this.boardSize) {
                 this.hoverIdx = null;
@@ -226,7 +290,10 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                         data.boardState,
                         data.capturesBlack ?? this.capturesBlack,
                         data.capturesWhite ?? this.capturesWhite,
-                        data.komi ?? this.komi
+                        data.komi ?? this.komi,
+                        [],
+                        false,
+                        false
                     );
                 }
 
@@ -246,6 +313,20 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
             }
         },
 
+        async toggleDeadGroup(coordinate) {
+            this.errorMsg = '';
+            try {
+                const { data } = await window.axios.post(`/games/${this.gameId}/scoring/toggle-dead-group`, { coordinate });
+                this.deadStones = (data.deadStones ?? []).map(([r, c]) => r * this.boardSize + c);
+                this.scoreConfirmedBlack = data.scoreConfirmedBlack ?? false;
+                this.scoreConfirmedWhite = data.scoreConfirmedWhite ?? false;
+                this._computeScore(this.capturesBlack, this.capturesWhite, this.komi);
+                this.renderStones();
+            } catch (err) {
+                this.errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาด';
+            }
+        },
+
         _handleGameOver(result) {
             this.gameResult = `เกมจบแล้ว: ${result ?? ''}`;
             this.gameOver = true;
@@ -258,7 +339,12 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
             this.errorMsg = '';
             try {
                 const { data } = await window.axios.post(`/games/${this.gameId}/confirm-score`);
-                this._handleGameOver(data.result);
+                if (data.finished) {
+                    this._handleGameOver(data.result);
+                } else {
+                    this.scoreConfirmedBlack = data.scoreConfirmedBlack ?? this.scoreConfirmedBlack;
+                    this.scoreConfirmedWhite = data.scoreConfirmedWhite ?? this.scoreConfirmedWhite;
+                }
             } catch (err) {
                 this.errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาด';
             }
@@ -271,8 +357,13 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 this.scoringProposal = false;
                 this.scoreBlack = 0;
                 this.scoreWhite = 0;
+                this.deadStones = [];
+                this.scoreConfirmedBlack = false;
+                this.scoreConfirmedWhite = false;
+                this.territoryMap = Array(this.boardSize * this.boardSize).fill(0);
                 this.currentColor = data.currentColor;
                 this.isMyTurn = !!this.myColor && this.myColor === this.currentColor;
+                this.renderStones();
             } catch (err) {
                 this.errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาด';
             }
@@ -287,6 +378,13 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
             } catch (err) {
                 this.errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาด';
             }
+        },
+
+        // Returns true if current player has already confirmed score
+        myConfirmed() {
+            if (this.myColor === 'black') return this.scoreConfirmedBlack;
+            if (this.myColor === 'white') return this.scoreConfirmedWhite;
+            return false;
         },
 
         // ── Stone rendering (bypasses Alpine x-for SVG namespace issues) ─
@@ -325,10 +423,13 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 layer.appendChild(pg);
             }
 
+            const deadSet = new Set(this.deadStones);
+
             this.board.forEach((val, idx) => {
                 if (val === 0) return;
                 const cx = (idx % this.boardSize + 1) * C;
                 const cy = (Math.floor(idx / this.boardSize) + 1) * C;
+                const isDead = deadSet.has(idx);
                 const g = document.createElementNS(ns, 'g');
                 g.setAttribute('style', 'pointer-events:none');
                 // shadow
@@ -346,9 +447,10 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 stone.setAttribute('fill', val === 1 ? '#1C1C1C' : '#F0EAD0');
                 stone.setAttribute('stroke', val === 1 ? '#000' : '#B8A880');
                 stone.setAttribute('stroke-width', '1.5');
+                if (isDead) stone.setAttribute('opacity', '0.35');
                 g.appendChild(stone);
-                // shine (black only)
-                if (val === 1) {
+                // shine (black only, not dead)
+                if (val === 1 && !isDead) {
                     const shine = document.createElementNS(ns, 'circle');
                     shine.setAttribute('cx', cx - C * 0.12);
                     shine.setAttribute('cy', cy - C * 0.12);
@@ -356,8 +458,8 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                     shine.setAttribute('fill', 'rgba(255,255,255,0.35)');
                     g.appendChild(shine);
                 }
-                // last move marker
-                if (this.lastMoveIdx === idx) {
+                // last move marker (not in scoring mode)
+                if (!this.scoringProposal && this.lastMoveIdx === idx) {
                     const marker = document.createElementNS(ns, 'circle');
                     marker.setAttribute('cx', cx);
                     marker.setAttribute('cy', cy);
@@ -367,6 +469,53 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 }
                 layer.appendChild(g);
             });
+
+            // Scoring overlays
+            if (this.scoringProposal) {
+                // Territory markers on empty intersections
+                for (let idx = 0; idx < this.boardSize * this.boardSize; idx++) {
+                    const terr = this.territoryMap[idx];
+                    if (terr === 0) continue;
+                    if (this.board[idx] !== 0 && !deadSet.has(idx)) continue; // occupied by live stone
+                    const cx = (idx % this.boardSize + 1) * C;
+                    const cy = (Math.floor(idx / this.boardSize) + 1) * C;
+                    const half = C * 0.16;
+                    const dot = document.createElementNS(ns, 'rect');
+                    dot.setAttribute('x', cx - half);
+                    dot.setAttribute('y', cy - half);
+                    dot.setAttribute('width', half * 2);
+                    dot.setAttribute('height', half * 2);
+                    dot.setAttribute('fill', terr === 1 ? '#111' : '#f5f0e0');
+                    dot.setAttribute('stroke', terr === 1 ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)');
+                    dot.setAttribute('stroke-width', '0.5');
+                    dot.setAttribute('opacity', '0.85');
+                    dot.setAttribute('style', 'pointer-events:none');
+                    layer.appendChild(dot);
+                }
+
+                // Dead stone X overlays
+                deadSet.forEach(idx => {
+                    if (this.board[idx] === 0) return;
+                    const cx = (idx % this.boardSize + 1) * C;
+                    const cy = (Math.floor(idx / this.boardSize) + 1) * C;
+                    const r = C * 0.28;
+                    const g = document.createElementNS(ns, 'g');
+                    g.setAttribute('style', 'pointer-events:none');
+                    const x1 = document.createElementNS(ns, 'line');
+                    x1.setAttribute('x1', cx - r); x1.setAttribute('y1', cy - r);
+                    x1.setAttribute('x2', cx + r); x1.setAttribute('y2', cy + r);
+                    x1.setAttribute('stroke', '#EF4444'); x1.setAttribute('stroke-width', '2.5');
+                    x1.setAttribute('stroke-linecap', 'round');
+                    g.appendChild(x1);
+                    const x2 = document.createElementNS(ns, 'line');
+                    x2.setAttribute('x1', cx + r); x2.setAttribute('y1', cy - r);
+                    x2.setAttribute('x2', cx - r); x2.setAttribute('y2', cy + r);
+                    x2.setAttribute('stroke', '#EF4444'); x2.setAttribute('stroke-width', '2.5');
+                    x2.setAttribute('stroke-linecap', 'round');
+                    g.appendChild(x2);
+                    layer.appendChild(g);
+                });
+            }
         },
 
         // ── Helpers ───────────────────────────────────

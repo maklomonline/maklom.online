@@ -121,15 +121,47 @@ class GameController extends Controller
     public function confirmScore(Game $game, Request $request)
     {
         try {
-            $game = $this->gameService->confirmScore($game);
+            $outcome = $this->gameService->confirmScore($game, $request->user());
         } catch (GoRuleException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
+        // If opponent is a bot and game still in scoring, bot auto-confirms
+        if (! $outcome['finished'] && $game->status === 'scoring') {
+            $user = $request->user();
+            $opponent = $game->getOpponent($user);
+            if ($opponent && $opponent->is_bot) {
+                $game->refresh();
+                $outcome = $this->gameService->confirmScore($game, $opponent);
+            }
+        }
+
+        $game->refresh();
+
         return response()->json([
             'success' => true,
-            'result' => $game->result,
-            'status' => $game->status,
+            'finished' => $outcome['finished'],
+            'result' => $outcome['result'],
+            'scoreConfirmedBlack' => (bool) $game->score_confirmed_black,
+            'scoreConfirmedWhite' => (bool) $game->score_confirmed_white,
+        ]);
+    }
+
+    public function toggleDeadGroup(Game $game, Request $request)
+    {
+        $request->validate(['coordinate' => ['required', 'string']]);
+
+        if ($game->status !== 'scoring') {
+            return response()->json(['error' => 'ไม่ได้อยู่ในขั้นตอนนับคะแนน'], 422);
+        }
+
+        $game = $this->gameService->toggleDeadGroup($game, $request->coordinate);
+
+        return response()->json([
+            'success' => true,
+            'deadStones' => $game->dead_stones ?? [],
+            'scoreConfirmedBlack' => $game->score_confirmed_black,
+            'scoreConfirmedWhite' => $game->score_confirmed_white,
         ]);
     }
 
@@ -160,22 +192,6 @@ class GameController extends Controller
             'result' => $game->result,
             'status' => $game->status,
         ]);
-    }
-
-    public function submitDeadStones(Game $game, Request $request)
-    {
-        $request->validate([
-            'dead_stones' => ['array'],
-            'dead_stones.*' => ['array', 'size:2'],
-        ]);
-
-        if ($game->status !== 'scoring') {
-            return response()->json(['error' => 'ไม่ได้อยู่ในขั้นตอนนับคะแนน'], 422);
-        }
-
-        $this->gameService->submitDeadStones($game, $request->user(), $request->dead_stones ?? []);
-
-        return response()->json(['success' => true]);
     }
 
     /** Dispatch BotMoveJob ถ้า current player เป็นบอท */

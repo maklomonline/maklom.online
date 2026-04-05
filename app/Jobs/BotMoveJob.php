@@ -76,7 +76,7 @@ class BotMoveJob implements ShouldQueue
                 $game->refresh();
                 if ($game->status === 'scoring') {
                     sleep(1);
-                    $gameService->confirmScore($game);
+                    $gameService->confirmScoreForBot($game, $botUser);
                 }
             } else {
                 $gameService->makeMove($game, $botUser, $coordinate);
@@ -88,7 +88,7 @@ class BotMoveJob implements ShouldQueue
                 $game->refresh();
                 if ($game->status === 'scoring') {
                     sleep(1);
-                    $gameService->confirmScore($game);
+                    $gameService->confirmScoreForBot($game, $botUser);
                 }
             } catch (GoRuleException) {
                 // เกมอาจจบแล้ว ไม่ต้องทำอะไร

@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Events\DeadStonesUpdated;
 use App\Events\GameEnded;
 use App\Events\GameStarted;
 use App\Events\MoveMade;
 use App\Events\PlayerPassed;
 use App\Events\PlayerResigned;
+use App\Events\ScoreConfirmationUpdated;
 use App\Events\ScoringCancelled;
 use App\Events\ScoringPhaseStarted;
 use App\Models\Game;
@@ -190,54 +192,161 @@ class GameService
 
     public function enterScoring(Game $game): void
     {
-        $game->update(['status' => 'scoring', 'consecutive_passes' => 0]);
+        $game->update([
+            'status' => 'scoring',
+            'consecutive_passes' => 0,
+            'dead_stones' => [],
+            'score_confirmed_black' => false,
+            'score_confirmed_white' => false,
+        ]);
         $game->refresh();
         broadcast(new ScoringPhaseStarted($game))->toOthers();
     }
 
-    public function submitDeadStones(Game $game, User $user, array $deadStoneCoords): Game
+    /**
+     * Toggle a connected group of stones as dead/alive.
+     * Any change resets both players' confirmations.
+     */
+    public function toggleDeadGroup(Game $game, string $coordinate): Game
     {
-        $scoreResult = $this->board->calculateScore(
-            $game->board_state,
-            $game->board_size,
-            $deadStoneCoords,
-            $game->captures_black,
-            $game->captures_white,
-            $game->komi
-        );
-
-        $winner = null;
-        if ($scoreResult->winner === 'black') {
-            $winner = $game->blackPlayer;
-        } elseif ($scoreResult->winner === 'white') {
-            $winner = $game->whitePlayer;
+        if ($game->status !== 'scoring') {
+            return $game;
         }
 
-        return $this->finishGame($game, $scoreResult->result, $winner, 'score');
+        [$row, $col] = $this->board->coordinateToRowCol($coordinate, $game->board_size);
+        $idx = $row * $game->board_size + $col;
+
+        if ($game->board_state[$idx] === BoardService::EMPTY) {
+            return $game;
+        }
+
+        // Find the connected group
+        $group = $this->board->getGroup($game->board_state, $game->board_size, $idx);
+        $groupCoords = array_map(
+            fn ($i) => [intdiv($i, $game->board_size), $i % $game->board_size],
+            $group['stones']
+        );
+
+        // Current dead stones as set of "row,col" strings
+        $currentDead = collect($game->dead_stones ?? [])
+            ->map(fn ($s) => "{$s[0]},{$s[1]}")
+            ->flip()
+            ->all();
+
+        // Check if any stone in the group is already dead
+        $anyDead = false;
+        foreach ($groupCoords as [$r, $c]) {
+            if (isset($currentDead["{$r},{$c}"])) {
+                $anyDead = true;
+                break;
+            }
+        }
+
+        if ($anyDead) {
+            // Remove entire group from dead stones (mark alive)
+            $groupSet = collect($groupCoords)->map(fn ($s) => "{$s[0]},{$s[1]}")->flip()->all();
+            $newDead = collect($game->dead_stones ?? [])
+                ->filter(fn ($s) => ! isset($groupSet["{$s[0]},{$s[1]}"]))
+                ->values()
+                ->all();
+        } else {
+            // Add entire group to dead stones
+            $newDead = array_merge($game->dead_stones ?? [], $groupCoords);
+        }
+
+        $game->update([
+            'dead_stones' => $newDead,
+            'score_confirmed_black' => false,
+            'score_confirmed_white' => false,
+        ]);
+        $game->refresh();
+
+        broadcast(new DeadStonesUpdated($game));
+
+        return $game;
     }
 
-    public function confirmScore(Game $game): Game
+    /**
+     * Mark a player's confirmation. Finishes the game only when both players confirm.
+     * Returns ['finished' => bool, 'result' => string|null].
+     */
+    public function confirmScore(Game $game, User $user): array
     {
         if ($game->status !== 'scoring') {
             throw GoRuleException::gameNotActive();
         }
 
-        $scoreResult = $this->board->calculateScore(
-            $game->board_state,
-            $game->board_size,
-            [],
-            $game->captures_black,
-            $game->captures_white,
-            $game->komi
-        );
+        $color = $game->getPlayerColor($user);
+        if ($color === 'black') {
+            $game->update(['score_confirmed_black' => true]);
+        } else {
+            $game->update(['score_confirmed_white' => true]);
+        }
+        $game->refresh();
 
-        $winner = match ($scoreResult->winner) {
-            'black' => $game->blackPlayer,
-            'white' => $game->whitePlayer,
-            default => null,
-        };
+        broadcast(new ScoreConfirmationUpdated($game));
 
-        return $this->finishGame($game, $scoreResult->result, $winner, 'score');
+        if ($game->score_confirmed_black && $game->score_confirmed_white) {
+            $scoreResult = $this->board->calculateScore(
+                $game->board_state,
+                $game->board_size,
+                $game->dead_stones ?? [],
+                $game->captures_black,
+                $game->captures_white,
+                $game->komi
+            );
+
+            $winner = match ($scoreResult->winner) {
+                'black' => $game->blackPlayer,
+                'white' => $game->whitePlayer,
+                default => null,
+            };
+
+            $game = $this->finishGame($game, $scoreResult->result, $winner, 'score');
+
+            return ['finished' => true, 'result' => $game->result];
+        }
+
+        return ['finished' => false, 'result' => null];
+    }
+
+    /**
+     * Bot-only: confirm score unconditionally (skips two-player requirement).
+     */
+    public function confirmScoreForBot(Game $game, User $botUser): void
+    {
+        if ($game->status !== 'scoring') {
+            return;
+        }
+
+        $color = $game->getPlayerColor($botUser);
+        if ($color === 'black') {
+            $game->update(['score_confirmed_black' => true]);
+        } else {
+            $game->update(['score_confirmed_white' => true]);
+        }
+        $game->refresh();
+
+        broadcast(new ScoreConfirmationUpdated($game));
+
+        if ($game->score_confirmed_black && $game->score_confirmed_white) {
+            $scoreResult = $this->board->calculateScore(
+                $game->board_state,
+                $game->board_size,
+                $game->dead_stones ?? [],
+                $game->captures_black,
+                $game->captures_white,
+                $game->komi
+            );
+
+            $winner = match ($scoreResult->winner) {
+                'black' => $game->blackPlayer,
+                'white' => $game->whitePlayer,
+                default => null,
+            };
+
+            $this->finishGame($game, $scoreResult->result, $winner, 'score');
+        }
     }
 
     public function cancelScoring(Game $game): void

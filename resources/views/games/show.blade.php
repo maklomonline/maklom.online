@@ -456,7 +456,10 @@
         {{ $game->move_number }},
         {{ $game->komi }},
         '{{ $game->result ?? '' }}',
-        {{ auth()->check() && auth()->user()->confirm_move ? 'true' : 'false' }}
+        {{ auth()->check() && auth()->user()->confirm_move ? 'true' : 'false' }},
+        @json($game->dead_stones ?? []),
+        {{ $game->score_confirmed_black ? 'true' : 'false' }},
+        {{ $game->score_confirmed_white ? 'true' : 'false' }}
     )"
     style="display:grid;grid-template-columns:1fr;gap:1rem"
     id="game-root">
@@ -626,38 +629,68 @@
                 </template>
 
                 {{-- Scoring proposal buttons --}}
-                <template x-if="scoringProposal && !gameOver">
+                <template x-if="scoringProposal && !gameOver && !myConfirmed()">
                     <button @click="confirmScore()"
                         class="btn btn-primary" style="flex:1">
-                        <ion-icon name="checkmark-circle-outline"></ion-icon> ยืนยันผลลัพธ์
+                        <ion-icon name="checkmark-circle-outline"></ion-icon> ยืนยันผลคะแนน
+                    </button>
+                </template>
+                <template x-if="scoringProposal && !gameOver && myConfirmed()">
+                    <button disabled
+                        class="btn btn-primary" style="flex:1;opacity:0.55;cursor:not-allowed">
+                        <ion-icon name="hourglass-outline"></ion-icon> รอฝ่ายตรงข้าม...
                     </button>
                 </template>
                 <template x-if="scoringProposal && !gameOver">
                     <button @click="cancelScoring()"
                         class="btn btn-secondary" style="flex:1">
-                        <ion-icon name="close-circle-outline"></ion-icon> ยกเลิก
+                        <ion-icon name="close-circle-outline"></ion-icon> เล่นต่อ
                     </button>
                 </template>
             </div>
             @endif
 
             {{-- Scoring proposal panel --}}
-            <div x-show="scoringProposal && !gameOver" style="padding:0.875rem 1rem;border-top:1.5px solid #BBF7D0;background:#F0FDF4">
-                <p style="font-size:0.75rem;font-weight:700;color:#15803D;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 0.5rem">นับคะแนน</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem">
+            <div x-show="scoringProposal && !gameOver" style="border-top:1.5px solid #BBF7D0;background:#F0FDF4">
+
+                {{-- Instruction --}}
+                <div style="padding:0.625rem 1rem 0;display:flex;align-items:center;gap:0.375rem">
+                    <ion-icon name="hand-left-outline" style="color:#15803D;font-size:1rem;flex-shrink:0"></ion-icon>
+                    <p style="font-size:0.8125rem;font-weight:700;color:#15803D;margin:0">โปรดเลือกกลุ่มหมากที่ตายแล้ว</p>
+                </div>
+                <p style="font-size:0.75rem;color:#4B7C59;margin:0;padding:0.125rem 1rem 0.5rem">กดบนหมากเพื่อ toggle กลุ่มที่ตาย แล้วกดยืนยันผลคะแนน</p>
+
+                {{-- Score display --}}
+                <div style="padding:0 1rem 0.5rem;display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
                     <div style="text-align:center;background:#fff;border-radius:6px;padding:0.375rem 0.5rem;border:1.5px solid #E2E2E7">
                         <div style="font-size:0.6875rem;color:#6B6B80;font-weight:600;margin-bottom:2px">⚫ ดำ</div>
-                        <div style="font-size:1.125rem;font-weight:800;color:#111118" x-text="scoreBlack"></div>
+                        <div style="font-size:1.125rem;font-weight:800;color:#111118" x-text="scoreBlack.toFixed(1)"></div>
                     </div>
                     <div style="text-align:center;background:#fff;border-radius:6px;padding:0.375rem 0.5rem;border:1.5px solid #E2E2E7">
                         <div style="font-size:0.6875rem;color:#6B6B80;font-weight:600;margin-bottom:2px">⚪ ขาว</div>
-                        <div style="font-size:1.125rem;font-weight:800;color:#111118" x-text="scoreWhite"></div>
+                        <div style="font-size:1.125rem;font-weight:800;color:#111118" x-text="scoreWhite.toFixed(1)"></div>
                     </div>
                 </div>
-                <p style="font-size:0.8125rem;font-weight:700;text-align:center;margin:0"
+
+                {{-- Score lead --}}
+                <p style="font-size:0.8125rem;font-weight:700;text-align:center;margin:0;padding:0 1rem 0.5rem"
                     :style="scoreBlack > scoreWhite ? 'color:#15803D' : (scoreWhite > scoreBlack ? 'color:#1D4ED8' : 'color:#6B6B80')"
                     x-text="scoreBlack > scoreWhite ? ('ดำนำ +' + (scoreBlack - scoreWhite).toFixed(1)) : (scoreWhite > scoreBlack ? ('ขาวนำ +' + (scoreWhite - scoreBlack).toFixed(1)) : 'เสมอ')">
                 </p>
+
+                {{-- Confirmation status --}}
+                <div style="padding:0.375rem 1rem 0.625rem;display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+                    <div :style="scoreConfirmedBlack ? 'background:#DCFCE7;border:1.5px solid #86EFAC' : 'background:#fff;border:1.5px solid #E2E2E7'"
+                        style="text-align:center;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.75rem;font-weight:700">
+                        <span x-text="scoreConfirmedBlack ? '⚫ ✓ ยืนยันแล้ว' : '⚫ รอยืนยัน'"
+                            :style="scoreConfirmedBlack ? 'color:#15803D' : 'color:#9CA3AF'"></span>
+                    </div>
+                    <div :style="scoreConfirmedWhite ? 'background:#DCFCE7;border:1.5px solid #86EFAC' : 'background:#fff;border:1.5px solid #E2E2E7'"
+                        style="text-align:center;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.75rem;font-weight:700">
+                        <span x-text="scoreConfirmedWhite ? '⚪ ✓ ยืนยันแล้ว' : '⚪ รอยืนยัน'"
+                            :style="scoreConfirmedWhite ? 'color:#15803D' : 'color:#9CA3AF'"></span>
+                    </div>
+                </div>
             </div>
 
             {{-- Error / Result messages --}}
