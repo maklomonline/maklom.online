@@ -87,6 +87,7 @@ Route::middleware(['auth', 'not.banned'])->group(function () {
             Route::post('/games/{game}/scoring/toggle-dead-group', [GameController::class, 'toggleDeadGroup'])->name('games.toggle-dead-group');
             Route::post('/games/{game}/confirm-score', [GameController::class, 'confirmScore'])->name('games.confirm-score');
             Route::post('/games/{game}/cancel-scoring', [GameController::class, 'cancelScoring'])->name('games.cancel-scoring');
+            Route::post('/games/{game}/timeout', [GameController::class, 'claimTimeout'])->name('games.timeout');
         });
 
         // Chat

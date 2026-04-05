@@ -30,6 +30,7 @@ export function clockTimer(
         byoyomiSeconds: byoyomiSeconds || 30,
         activeColor: initColor,
         interval: null,
+        timeoutDispatched: false,
 
         // Server-authoritative snapshots (set by syncFromEvent)
         blackTimeSnap:    initBlack,
@@ -91,6 +92,7 @@ export function clockTimer(
 
             // New turn starts NOW (client side).
             this.turnRefMs = Date.now();
+            this.timeoutDispatched = false;
 
             if (nextColor) this.activeColor = nextColor;
 
@@ -144,6 +146,11 @@ export function clockTimer(
                     this[`${color}Time`]       = 0;
                     this[`${color}Periods`]    = 0;
                     this[`${color}ByoyomiLeft`] = 0;
+
+                    if (!this.timeoutDispatched) {
+                        this.timeoutDispatched = true;
+                        window.dispatchEvent(new CustomEvent('clock-timeout', { detail: { color } }));
+                    }
                 }
             }
         },

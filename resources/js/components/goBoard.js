@@ -39,6 +39,11 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 this._computeScore(this.capturesBlack, this.capturesWhite, this.komi);
             }
             this.listenToChannel();
+
+            window.addEventListener('clock-timeout', (e) => {
+                if (this.gameOver) return;
+                this._submitTimeout(e.detail.color);
+            });
         },
 
         _boardTo2D() {
@@ -324,6 +329,15 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 this.renderStones();
             } catch (err) {
                 this.errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาด';
+            }
+        },
+
+        async _submitTimeout(color) {
+            try {
+                const { data } = await window.axios.post(`/games/${this.gameId}/timeout`, { color });
+                this._handleGameOver(data.result);
+            } catch (err) {
+                // If game already ended (409/422), ignore silently
             }
         },
 

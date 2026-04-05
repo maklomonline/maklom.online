@@ -118,6 +118,25 @@ class GameController extends Controller
         ]);
     }
 
+    public function claimTimeout(Game $game, Request $request)
+    {
+        if (! $game->isActive()) {
+            return response()->json(['error' => 'Game is not active'], 422);
+        }
+
+        $timedOutColor = $request->input('color');
+        if (! in_array($timedOutColor, ['black', 'white'])) {
+            return response()->json(['error' => 'Invalid color'], 422);
+        }
+
+        $finished = $this->gameService->handleTimeout($game, $timedOutColor);
+
+        return response()->json([
+            'success' => true,
+            'result' => $finished->result,
+        ]);
+    }
+
     public function confirmScore(Game $game, Request $request)
     {
         try {
