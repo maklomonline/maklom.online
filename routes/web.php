@@ -76,10 +76,11 @@ Route::middleware(['auth', 'not.banned'])->group(function () {
         // Games
         Route::get('/games/history/{user:username}', [GameController::class, 'history'])->name('games.history');
         Route::get('/games/{game}', [GameController::class, 'show'])->name('games.show');
-        Route::get('/games/{game}/base-sgf', [GameAnnotationController::class, 'baseSgf'])->name('games.base-sgf');
-        Route::post('/games/{game}/annotations', [GameAnnotationController::class, 'store'])->name('games.annotations.store');
-        Route::put('/games/{game}/annotations/{annotation}', [GameAnnotationController::class, 'update'])->name('games.annotations.update');
-        Route::delete('/games/{game}/annotations/{annotation}', [GameAnnotationController::class, 'destroy'])->name('games.annotations.destroy');
+        Route::get('/games/{game}/annotation/new', [GameAnnotationController::class, 'create'])->name('games.annotation.create');
+        Route::get('/games/{game}/annotation/{annotation}', [GameAnnotationController::class, 'show'])->name('games.annotation.show');
+        Route::post('/games/{game}/annotation', [GameAnnotationController::class, 'store'])->name('games.annotation.store');
+        Route::put('/games/{game}/annotation/{annotation}', [GameAnnotationController::class, 'update'])->name('games.annotation.update');
+        Route::delete('/games/{game}/annotation/{annotation}', [GameAnnotationController::class, 'destroy'])->name('games.annotation.destroy');
         Route::middleware('game.player')->group(function () {
             Route::post('/games/{game}/move', [GameController::class, 'move'])->name('games.move');
             Route::post('/games/{game}/pass', [GameController::class, 'pass'])->name('games.pass');
@@ -87,8 +88,9 @@ Route::middleware(['auth', 'not.banned'])->group(function () {
             Route::post('/games/{game}/scoring/toggle-dead-group', [GameController::class, 'toggleDeadGroup'])->name('games.toggle-dead-group');
             Route::post('/games/{game}/confirm-score', [GameController::class, 'confirmScore'])->name('games.confirm-score');
             Route::post('/games/{game}/cancel-scoring', [GameController::class, 'cancelScoring'])->name('games.cancel-scoring');
-            Route::post('/games/{game}/timeout', [GameController::class, 'claimTimeout'])->name('games.timeout');
         });
+        
+        Route::post('/games/{game}/timeout', [GameController::class, 'claimTimeout'])->name('games.timeout');
 
         // Chat
         Route::get('/chat/global', [ChatController::class, 'globalMessages'])->name('chat.global');

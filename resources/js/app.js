@@ -6,7 +6,8 @@ import { chatWindow } from './components/chatWindow';
 import { notificationBell } from './components/notificationBell';
 import { lobbyRooms } from './components/lobbyRooms';
 import { roomWaiting } from './components/roomWaiting';
-import { gameReview } from './components/gameReview';
+import { gameReplay } from './components/gameReplay';
+import { gameAnnotationEditor } from './components/gameAnnotationEditor';
 
 Alpine.data('goBoard', goBoard);
 Alpine.data('clockTimer', clockTimer);
@@ -14,7 +15,9 @@ Alpine.data('chatWindow', chatWindow);
 Alpine.data('notificationBell', notificationBell);
 Alpine.data('lobbyRooms', lobbyRooms);
 Alpine.data('roomWaiting', roomWaiting);
-Alpine.data('gameReview', gameReview);
+Alpine.data('gameReplay', gameReplay);
+Alpine.data('gameReview', gameReplay);
+Alpine.data('gameAnnotationEditor', gameAnnotationEditor);
 
 window.Alpine = Alpine;
 Alpine.start();

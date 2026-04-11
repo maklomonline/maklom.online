@@ -80,8 +80,15 @@ class SgfService
                 $result = $this->boardService->placeStone($board, $bs, $row, $col, $color, $koPoint);
                 $board = $result->newBoard;
                 $koPoint = $result->newKoPoint;
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
                 // Invalid move in history — keep board as-is to avoid crashing
+                // Log the error for debugging
+                \Illuminate\Support\Facades\Log::warning('Invalid move in game history', [
+                    'game_id' => $game->id,
+                    'move_number' => $move->move_number,
+                    'coordinate' => $move->coordinate,
+                    'error' => $e->getMessage()
+                ]);
             }
 
             $states[] = $board;

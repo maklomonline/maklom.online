@@ -12,6 +12,7 @@ use App\Services\GameService;
 use App\Services\GoEngine\GoRuleException;
 use App\Services\SgfService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class GameController extends Controller
 {
@@ -33,23 +34,49 @@ class GameController extends Controller
 
         $chatRoom = $game->chatRoom();
 
-        // For finished games: pre-compute board states and load annotations
         $boardStates = null;
         $annotations = collect();
         if ($game->status === 'finished') {
-            $boardStates = $this->sgfService->computeBoardStates($game);
-            $annotations = GameAnnotation::where('game_id', $game->id)
-                ->with('user')
-                ->orderBy('created_at')
-                ->get()
-                ->map(fn ($a) => [
-                    'id'         => $a->id,
-                    'title'      => $a->title,
-                    'user'       => $a->user?->getDisplayName() ?? '?',
-                    'user_id'    => $a->user_id,
-                    'sgf'        => $a->sgf_content,
-                    'created_at' => $a->created_at->toDateTimeString(),
+            try {
+                $boardStates = $this->sgfService->computeBoardStates($game);
+
+                if (empty($boardStates) || !is_array($boardStates)) {
+                    Log::warning('Invalid board states generated for game', [
+                        'game_id' => $game->id,
+                        'board_states_count' => count($boardStates ?? []),
+                    ]);
+                    $bs = $game->board_size;
+                    $emptyBoard = array_fill(0, $bs * $bs, 0);
+                    $boardStates = [$emptyBoard];
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to compute board states for game', [
+                    'game_id' => $game->id,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
+                $bs = $game->board_size;
+                $emptyBoard = array_fill(0, $bs * $bs, 0);
+                $boardStates = [$emptyBoard];
+            }
+
+            $annotations = GameAnnotation::query()
+                ->where('game_id', $game->id)
+                ->with('user')
+                ->latest('updated_at')
+                ->get()
+                ->map(fn (GameAnnotation $annotation) => [
+                    'id' => $annotation->id,
+                    'title' => $annotation->title,
+                    'user' => $annotation->user?->getDisplayName() ?? '?',
+                    'user_id' => $annotation->user_id,
+                    'positions_count' => $annotation->positions_count,
+                    'updated_at' => $annotation->updated_at?->toDateTimeString(),
+                    'view_url' => route('games.annotation.show', [$game, $annotation]),
+                    'can_edit' => $user?->id === $annotation->user_id,
+                ]);
+
+            return view('games.review', compact('game', 'myColor', 'chatRoom', 'boardStates', 'annotations'));
         }
 
         return view('games.show', compact('game', 'myColor', 'chatRoom', 'boardStates', 'annotations'));
@@ -129,12 +156,27 @@ class GameController extends Controller
             return response()->json(['error' => 'Invalid color'], 422);
         }
 
-        $finished = $this->gameService->handleTimeout($game, $timedOutColor);
+        if ($game->current_color !== $timedOutColor) {
+            return response()->json(['error' => 'Not this player\'s turn'], 422);
+        }
 
-        return response()->json([
-            'success' => true,
-            'result' => $finished->result,
-        ]);
+        $ref = $game->last_move_at ?? $game->started_at ?? now();
+        $secondsSpent = (int) $ref->diffInSeconds(now());
+
+        $clock = app(\App\Services\ClockService::class);
+        
+        try {
+            $clock->recordMove($game, $timedOutColor, $secondsSpent);
+            // If it succeeds without throwing, the player still has time.
+            return response()->json(['error' => 'Player has not timed out yet'], 422);
+        } catch (\App\Services\ClockTimeoutException $e) {
+            $finished = $this->gameService->handleTimeout($game, $timedOutColor);
+
+            return response()->json([
+                'success' => true,
+                'result' => $finished->result,
+            ]);
+        }
     }
 
     public function confirmScore(Game $game, Request $request)

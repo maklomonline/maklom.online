@@ -63,10 +63,6 @@ class BotMoveJob implements ShouldQueue
         // รอ 1 วินาทีเพื่อให้รู้สึกเป็นธรรมชาติ
         sleep(1);
 
-        // รีเซ็ต last_move_at เป็น now() เพื่อให้ clock ของบอทนับจากจุดที่บอทเริ่มคิด
-        // ไม่ใช่นับจากเวลาที่มนุษย์เดิน (ซึ่งรวม queue wait time ไว้ด้วย)
-        $game->last_move_at = now();
-
         // เลือก engine: ใช้ KataGo ถ้าตั้งค่าไว้ มิฉะนั้น fallback เป็น PHP engine เดิม
         $coordinate = $this->getMove($kataGoService, $botService, $game);
 

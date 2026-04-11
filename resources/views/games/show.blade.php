@@ -64,15 +64,15 @@
      REVIEW MODE — finished game
 ══════════════════════════════════════════════════════════════════════════ --}}
 <div
-    x-data="gameReview(
+    x-data='gameReview(
         {{ $game->id }},
         @json($boardStates),
         @json($game->moves->map(fn($m) => ['move_number'=>$m->move_number,'color'=>$m->color,'coordinate'=>$m->coordinate])->values()),
         {{ $bs }},
         {{ $game->komi }},
         @json($annotations->values()),
-        {{ auth()->check() ? auth()->id() : 'null' }}
-    )"
+        @json(auth()->id())
+    )'
     @keydown.arrow-left.window="goPrev()"
     @keydown.arrow-right.window="goNext()"
     @keydown.home.window="goFirst()"
@@ -287,12 +287,27 @@
                 <span><ion-icon name="bookmark-outline"></ion-icon> Annotation</span>
                 @auth
                 <button x-show="!editMode" @click="enterEditMode()"
-                    style="font-size:0.75rem;font-weight:700;padding:0.25rem 0.625rem;border-radius:6px;background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;cursor:pointer">
-                    + สร้างใหม่
-                </button>
-                @endauth
-            </div>
+                     style="font-size:0.75rem;font-weight:700;padding:0.25rem 0.625rem;border-radius:6px;background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;cursor:pointer"
+                     x-init="console.log('Create button initialized, editMode:', editMode)"
+                     x-effect="console.log('Create button x-effect, editMode:', editMode, 'shouldShow:', !editMode)">
+                     + สร้างใหม่
+                 </button>
+                 {{-- Debug button that's always visible --}}
+                 <button @click="enterEditMode()" style="font-size:0.75rem;font-weight:700;padding:0.25rem 0.625rem;border-radius:6px;background:#ff0000;color:#fff;border:1.5px solid #cc0000;cursor:pointer">
+                     DEBUG: สร้างใหม่
+                 </button>
+                 @endauth
+             </div>
             <div class="card-body" style="padding:0.75rem">
+
+                {{-- Debug info --}}
+                <div style="margin-bottom:0.625rem;padding:0.5rem;background:#f0f0f0;border-radius:4px;font-size:0.75rem;">
+                    <div>Debug Info:</div>
+                    <div>editMode: <span x-text="editMode"></span></div>
+                    <div>currentUserId: <span x-text="@json(auth()->id())"></span></div>
+                    <div>annotations length: <span x-text="annotations.length"></span></div>
+                    <div>activeAnnotationId: <span x-text="activeAnnotationId ?? null"></span></div>
+                </div>
 
                 {{-- Active annotation badge --}}
                 <template x-if="activeAnnotationId">
@@ -443,24 +458,24 @@
      LIVE GAME MODE — active / scoring / aborted
 ══════════════════════════════════════════════════════════════════════════ --}}
 <div
-    x-data="goBoard(
+    x-data='goBoard(
         {{ $game->id }},
         @json($game->board_state ?? array_fill(0, $bs*$bs, 0)),
-        '{{ $myColor ?? '' }}',
+        "{{ $myColor ?? '' }}",
         {{ $bs }},
-        '{{ $game->current_color }}',
-        '{{ $game->ko_point ?? '' }}',
+        "{{ $game->current_color }}",
+        "{{ $game->ko_point ?? '' }}",
         {{ $game->captures_black }},
         {{ $game->captures_white }},
-        '{{ $game->status }}',
+        "{{ $game->status }}",
         {{ $game->move_number }},
         {{ $game->komi }},
-        '{{ $game->result ?? '' }}',
+        "{{ $game->result ?? '' }}",
         {{ auth()->check() && auth()->user()->confirm_move ? 'true' : 'false' }},
         @json($game->dead_stones ?? []),
         {{ $game->score_confirmed_black ? 'true' : 'false' }},
         {{ $game->score_confirmed_white ? 'true' : 'false' }}
-    )"
+    )'
     style="display:grid;grid-template-columns:1fr;gap:1rem"
     id="game-root">
 
