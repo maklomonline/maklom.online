@@ -337,7 +337,11 @@ export function goBoard(gameId, initialBoard, myColor, boardSize, initialColor, 
                 const { data } = await window.axios.post(`/games/${this.gameId}/timeout`, { color });
                 this._handleGameOver(data.result);
             } catch (err) {
-                // If game already ended (409/422), ignore silently
+                if (err.response?.status === 422 && err.response?.data?.error === 'Player has not timed out yet') {
+                    setTimeout(() => {
+                        this._submitTimeout(color);
+                    }, 1000);
+                }
             }
         },
 
